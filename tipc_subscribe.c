@@ -29,19 +29,19 @@ static int32_t tipc_subscribe(
 uint32_t type, uint32_t lower, uint32_t upper,
 uint32_t timeout, uint32_t filter, uint8_t handle[8])
 {
-		struct tipc_subscr sub = {
-				.seq.type = htonl(type),
-				.seq.lower = htonl(lower),
-				.seq.upper = htonl(upper),
-				.timeout = htonl(timeout),
-				.filter = htonl(filter)
-		};
-		memcpy(sub.usr_handle, handle, 8);
-		if (send(topology_srv, &sub, sizeof(sub), 0) != sizeof(sub)) {
-				builtin_error("Failed to subscribe\n");
-				return errno;
-		}
-		return 0;
+	struct tipc_subscr sub = {
+			.seq.type = htonl(type),
+			.seq.lower = htonl(lower),
+			.seq.upper = htonl(upper),
+			.timeout = htonl(timeout),
+			.filter = htonl(filter)
+	};
+	memcpy(sub.usr_handle, handle, 8);
+	if (send(topology_srv, &sub, sizeof(sub), 0) != sizeof(sub)) {
+		builtin_error("Failed to subscribe\n");
+		return errno;
+	}
+	return 0;
 }
 static void tipc_evt(struct tipc_event *e) {
 	
@@ -79,6 +79,7 @@ static void *tipc_evtloop(void *arg) {
 		if (n == sizeof(evt)) {
 			tipc_evt(&evt);
 		} else {
+			builtin_error("%s",strerror(errno));
 				break;
 		}
 	}
@@ -95,9 +96,12 @@ int tipc_subscribe_builtin (WORD_LIST *list)
 	char dummy = 0;
 
 	reset_internal_getopt ();
-	while ((opt = internal_getopt (list, "u:")) != -1)
+	while ((opt = internal_getopt (list, "cu:t:")) != -1)
 	{
 		switch (opt) {
+		case 'c':
+			filter = TIPC_SUB_CANCEL;
+		break;
 		case 't':
 			timeout = (uint32_t) strtoul(list_optarg, NULL, 10);
 		break;
@@ -114,22 +118,20 @@ int tipc_subscribe_builtin (WORD_LIST *list)
 	args = strvec_from_word_list (list, 1, 0, (int *)NULL);
 	if (!args[0])
 		goto usage;
-	if ((strncmp(args[0], "cancel", 6) == 0) && args[1]) {
-		filter = TIPC_SUB_CANCEL;
+
+	if ((strncmp(args[0], "port", 4)== 0) && args[1]) {
+		filter |= TIPC_SUB_PORTS;
 		sub = args[1];
 		handle = args[2];
 	} else if ((strncmp(args[0], "service", 7) == 0) && args[1]) {
-		filter = TIPC_SUB_SERVICE;
-		sub = args[1];
-		handle = args[2];
-	} else if ((strncmp(args[0], "port", 4)== 0) && args[1]) {
-		filter = TIPC_SUB_PORTS;
+		filter |= TIPC_SUB_SERVICE;
 		sub = args[1];
 		handle = args[2];
 	} else {
 		/*Assume service subscription*/
 		sub = args[0];
 		handle = args[1];
+		filter |= TIPC_SUB_SERVICE;
 	}
 	if (handle) {
 		if(strlen(handle) > 8) {
@@ -140,14 +142,12 @@ int tipc_subscribe_builtin (WORD_LIST *list)
 	}
 	if ((sscanf(sub, "%u:%u:%c", &type, &lower, &dummy) == 2) &&
 		!dummy) {
-			upper=lower;
+		upper=lower;
 	}
 	else {
 		dummy = 0;
-		if ((sscanf(sub, "%u:%u:%u%c", &type, &lower, &upper, &dummy) == 3) &&
-		!dummy) {
-		}
-		else {
+		if (!((sscanf(sub, "%u:%u:%u%c", &type, &lower, &upper, &dummy) == 3) &&
+		!dummy)) {
 			goto usage;
 		}
 	}
@@ -155,7 +155,6 @@ int tipc_subscribe_builtin (WORD_LIST *list)
 		builtin_error("Invalid TIPC service range\n");
 		return EXECUTION_FAILURE;
 	}
-
 	if (tipc_subscribe(type, lower, upper, timeout, filter, usr_handle) == 0)
 		return EXECUTION_SUCCESS;
 	return EXECUTION_FAILURE;
@@ -184,6 +183,7 @@ int tipc_subscribe_builtin_load (char* name)
 		builtin_error("Failed to spawn worker thread\n");
 		return 0;
 	}
+	OUT_MSG("FD %d connected to TIPC topology server\n", topology_srv);
 	return (1);
 }
 
