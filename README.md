@@ -1,4 +1,6 @@
 ## Enable the module
+Ensure that your LD_LIBRARY_PATH points to where tipc_subscribe.so lives, or
+use a full path to the .so file in the enable command.
 
 ```
 [root@kdev ~]# enable -f tipc_subscribe.so tipc_subscribe
@@ -8,7 +10,6 @@ The subscribe module will spawn a thread in your current shell, establish a conn
 the TIPC topology server and start listening for events.
 Generated events are written directly to the shell stdout by default, this can be changed by
 passing another FD with the -u option.
-
 
 ## Examples
 ### Monitor network events
