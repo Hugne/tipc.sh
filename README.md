@@ -11,6 +11,14 @@ the TIPC topology server and start listening for events.
 Generated events are written directly to the shell stdout by default, this can be changed by
 passing another FD with the -u option.
 
+### Event prefix
+The event prefixes indicates the type of event that occurred.
+<pre>
+ +    TIPC_PUBLISHED
+ -    TIPC_WITHDRAWN
+ *    TIPC_SUBSCR_TIMEOUT
+ ?    Error</pre>
+
 ## Examples
 ### Monitor network events
 This will give you a notification whenever a node joins/leaves a TIPC network plane.
